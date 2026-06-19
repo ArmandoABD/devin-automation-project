@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   api,
   type Health,
@@ -141,16 +141,9 @@ export default function Dashboard() {
 
           {/* Trigger panel */}
           <div className="trigger-panel">
-            <div className="trigger-panel-title">Dispatch remediation</div>
+            <div className="trigger-panel-title">Remediation Engineer</div>
             <div className="trigger-row">
-              <select
-                value={vertical}
-                onChange={(e) => setVertical(e.target.value as Vertical)}
-              >
-                <option value="both">Vulnerabilities and code quality</option>
-                <option value="security">Common Vulnerabilities and Exposures</option>
-                <option value="backlog">Code quality backlog</option>
-              </select>
+              <VerticalSelect value={vertical} onChange={setVertical} />
               <button className="primary" onClick={trigger} disabled={triggering}>
                 {triggering ? (
                   <>
@@ -202,9 +195,9 @@ export default function Dashboard() {
 
 function MetricsRow({ m }: { m: Metrics | null }) {
   const cells = [
+    { k: "Sessions in progress", v: m?.in_progress ?? 0 },
     { k: "PRs opened", v: m?.prs_opened ?? 0 },
     { k: "Succeeded", v: m?.succeeded ?? 0 },
-    { k: "In progress", v: m?.in_progress ?? 0 },
     { k: "Success rate", v: m ? `${Math.round(m.success_rate * 100)}%` : "—" },
     { k: "Vulnerabilities fixed", v: m?.vulns_remediated ?? 0 },
     { k: "Code quality fixed", v: m?.backlog_fixed ?? 0 },
@@ -364,5 +357,88 @@ function SessionRow({ s }: { s: RemediationSession }) {
         )}
       </td>
     </tr>
+  );
+}
+
+const VERTICAL_OPTIONS: {
+  value: Vertical;
+  label: string;
+  dots: ("red" | "blue")[];
+}[] = [
+  { value: "both", label: "Both verticals", dots: ["red", "blue"] },
+  { value: "security", label: "CVEs only", dots: ["red"] },
+  { value: "backlog", label: "Code quality only", dots: ["blue"] },
+];
+
+function Dots({ dots }: { dots: ("red" | "blue")[] }) {
+  return (
+    <span className="vdots">
+      {dots.map((d, i) => (
+        <span key={i} className={`vdot ${d}`} />
+      ))}
+    </span>
+  );
+}
+
+function VerticalSelect({
+  value,
+  onChange,
+}: {
+  value: Vertical;
+  onChange: (v: Vertical) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const current = VERTICAL_OPTIONS.find((o) => o.value === value)!;
+
+  return (
+    <div className="vselect" ref={ref}>
+      <button
+        type="button"
+        className="vselect-trigger"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <Dots dots={current.dots} />
+        <span>{current.label}</span>
+        <svg
+          className="vselect-caret"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div className="vselect-menu">
+          {VERTICAL_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              className={`vselect-option ${o.value === value ? "selected" : ""}`}
+              onClick={() => {
+                onChange(o.value);
+                setOpen(false);
+              }}
+            >
+              <Dots dots={o.dots} />
+              <span>{o.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

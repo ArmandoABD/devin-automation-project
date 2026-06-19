@@ -323,6 +323,95 @@ button.ghost.stop:hover {
   border-color: var(--red);
 }
 
+/* ── Custom vertical dropdown ───────────────────────────────────────────── */
+
+.vselect {
+  position: relative;
+  min-width: 230px;
+}
+
+.vselect-trigger {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.vselect-trigger:hover {
+  background: var(--panel-2);
+}
+
+.vselect-caret {
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.vselect-menu {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.04),
+    0 12px 28px rgba(0, 0, 0, 0.1);
+  padding: 5px;
+}
+
+.vselect-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.vselect-option:hover {
+  background: var(--panel-2);
+}
+.vselect-option.selected {
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.vdots {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.vdot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.vdot.red {
+  background: radial-gradient(circle at 32% 30%, #fb7185, var(--red));
+  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.4);
+}
+.vdot.blue {
+  background: radial-gradient(circle at 32% 30%, #60a5fa, var(--accent));
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.4);
+}
+
 .draft-tag {
   font-size: 10px;
   font-weight: 600;
