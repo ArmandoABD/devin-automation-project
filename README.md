@@ -238,17 +238,6 @@ not run in the backend image.)
 
 ---
 
-## Next steps (real customer engagement)
-
-- Add a **scan webhook** (e.g. Dependabot alert → instant CVE response) alongside
-  the existing daily schedule + on-demand triggers.
-- Devin **Playbooks / Knowledge notes** to encode repo conventions (the Superset
-  `CLAUDE.md` rules) so PRs match house style on the first try.
-- Gate auto-merge on CI green + human approval for the security vertical.
-- Persist runs to Postgres and ship the metrics to Datadog/Grafana.
-
----
-
 ## Project layout
 
 ```
