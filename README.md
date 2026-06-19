@@ -18,21 +18,22 @@ deprioritize.
 
 ### The two task types in detail
 
+We have a general and focus run. For the focus run, we narrowed it down to specific issues (given the usage costs of running general runs with a large scope continuously)
+
 **🔴 CVE dependency upgrades.** Superset pins exact package versions in
 `requirements/base.txt`, and some have published CVEs. `pip-audit` surfaces the
 precise *package / version / CVE / fixed-version* triplet — e.g. **Pillow 9.3.0 →
 9.3.1 (CVE-2023-44271)**. Each becomes a GitHub issue with an unambiguous
 instruction: bump the version, run the suite, open a PR. This is the *ideal* Devin
-task — zero judgment, verifiable output, and a narrative that lands instantly with
-a security-conscious VP: **automatic CVE remediation with no engineer in the loop.**
+task: verifiable output, and a narrative that lands instantly with
+a security-conscious VP:
 
 **🔵 SQLAlchemy legacy `.query()` migration.** Superset was built on SQLAlchemy
 1.x, whose session-based `.query()` API is deprecated in 2.0 and slated for
 removal. A grep surfaces modules still using the old pattern; each becomes an issue
 asking Devin to rewrite the ORM calls to the modern `select()` style. It's a
 forward-compatibility refactor (not a version bump) — equally well-scoped and
-repeatable, and it shows Devin handling **real code refactoring**, a stronger
-technical demo than dependency bumps alone.
+repeatable, and it shows Devin handling **real code refactoring**.
 
 > **Why only one of each?** The default config scopes a run to exactly two issues
 > (one CVE upgrade + one SQLAlchemy migration) **purely for cost / Devin usage-limit
