@@ -1,0 +1,29 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Leave DEVIN_API_KEY empty to run in DEMO_MODE (no key required).
+      DEVIN_API_KEY: ${DEVIN_API_KEY:-}
+      DEVIN_ORG_ID: ${DEVIN_ORG_ID:-}
+      DEVIN_BASE_URL: ${DEVIN_BASE_URL:-https://api.devin.ai/v3}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_REPO: ${GITHUB_REPO:-ArmandoABD/superset_armando}
+      DEMO_MODE: ${DEMO_MODE:-}
+      # Cap remediation sessions per run (ACU cost guard). Default 6.
+      MAX_SESSIONS_PER_RUN: ${MAX_SESSIONS_PER_RUN:-6}
+      # Optional: mount a local Superset checkout for real before/after metrics.
+      REPO_PATH: ${REPO_PATH:-}
+    # Uncomment and set REPO_PATH=/superset to enable real scans:
+    # volumes:
+    #   - ../superset_armando:/superset:ro
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - backend

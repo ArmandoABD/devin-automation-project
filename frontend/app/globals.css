@@ -1,0 +1,298 @@
+:root {
+  --bg: #0b0e14;
+  --panel: #141925;
+  --panel-2: #1b2230;
+  --border: #283142;
+  --text: #e6edf3;
+  --muted: #8b97a8;
+  --accent: #6ea8fe;
+  --green: #3fb950;
+  --red: #f85149;
+  --amber: #d29922;
+  --purple: #a371f7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+.wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 24px 80px;
+}
+
+header.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+h1 {
+  font-size: 22px;
+  margin: 0;
+}
+.subtitle {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+.badge.demo {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+.badge.live {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+.controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+select,
+button {
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 9px 14px;
+}
+
+button.primary {
+  background: var(--accent);
+  color: #0b0e14;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+button.primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+button.ghost {
+  cursor: pointer;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.metric {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.metric .v {
+  font-size: 26px;
+  font-weight: 700;
+}
+.metric .k {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.section-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 24px 0 12px;
+}
+
+.run {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.run-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.run-head .id {
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+}
+
+.phase {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.phase.discovering {
+  background: rgba(163, 113, 247, 0.15);
+  color: var(--purple);
+}
+.phase.remediating {
+  background: rgba(110, 168, 254, 0.15);
+  color: var(--accent);
+}
+.phase.completed {
+  background: rgba(63, 185, 80, 0.15);
+  color: var(--green);
+}
+.phase.failed {
+  background: rgba(248, 81, 73, 0.15);
+  color: var(--red);
+}
+.phase.stopped {
+  background: rgba(139, 151, 168, 0.15);
+  color: var(--muted);
+}
+
+button.ghost.stop {
+  color: var(--red);
+  border-color: var(--red);
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--panel-2);
+  vertical-align: middle;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot.working {
+  background: var(--accent);
+  animation: pulse 1.2s infinite;
+}
+.dot.pending {
+  background: var(--muted);
+}
+.dot.finished {
+  background: var(--green);
+}
+.dot.failed {
+  background: var(--red);
+}
+.dot.blocked {
+  background: var(--amber);
+}
+.dot.stopped {
+  background: var(--muted);
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.vtag {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+.vtag.security {
+  background: rgba(248, 81, 73, 0.15);
+  color: var(--red);
+}
+.vtag.backlog {
+  background: rgba(110, 168, 254, 0.15);
+  color: var(--accent);
+}
+
+.impact {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.impact b {
+  color: var(--green);
+}
+
+.empty {
+  color: var(--muted);
+  font-size: 14px;
+  padding: 30px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+.pass {
+  color: var(--green);
+}
+.fail {
+  color: var(--red);
+}
+.muted {
+  color: var(--muted);
+}
