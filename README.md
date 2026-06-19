@@ -228,10 +228,16 @@ Devin session, and the resulting PR.
 
 **Proof of impact (before/after).** With the Superset checkout mounted at
 `REPO_PATH`, the engineer runs `pip-audit` against `requirements/base.txt` at the
-start of a run and again on demand via the **Re-scan** button — so once a CVE fix
-lands you can watch the vulnerability count drop (e.g. `7 → 6`). The fix lives on
-a PR branch, so the count moves after the change reaches the local checkout
-(merge + pull, or apply the branch locally). Without the mount, the
+start of a run and again on demand via the **Re-scan** button. Two numbers move,
+in opposite directions:
+
+- the **raw vulnerability count** in the repo goes **down** (e.g. `7 → 6` once a
+  CVE fix lands) — fewer vulnerabilities remaining, and
+- the **"Vulnerabilities fixed"** metric goes **up** (it's `before − after`, so a
+  `7 → 6` drop registers as `1` fixed).
+
+The fix lives on a PR branch, so these move once the change reaches the local
+checkout (merge + pull, or apply the branch locally). Without the mount, the
 session/PR/success metrics still work; only the before/after delta is skipped.
 (Python CVEs use `pip-audit` inside the container; npm auditing needs Node and is
 not run in the backend image.)
