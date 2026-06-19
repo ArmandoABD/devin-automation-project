@@ -63,6 +63,8 @@ class RunStore:
                         m.failed += 1
                     else:
                         m.succeeded += 1
+                        if s.vertical == "backlog":
+                            m.backlog_fixed += 1
                 elif s.status in ("pending", "working", "blocked"):
                     m.in_progress += 1
             if run.before and run.after:

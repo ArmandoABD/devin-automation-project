@@ -194,10 +194,10 @@ export default function Dashboard() {
 function MetricsRow({ m }: { m: Metrics | null }) {
   const cells = [
     { k: "PRs opened", v: m?.prs_opened ?? 0 },
-    { k: "Succeeded", v: m?.succeeded ?? 0 },
+    { k: "Vulns fixed", v: m?.vulns_remediated ?? 0 },
+    { k: "Code quality fixed", v: m?.backlog_fixed ?? 0 },
     { k: "In progress", v: m?.in_progress ?? 0 },
     { k: "Success rate", v: m ? `${Math.round(m.success_rate * 100)}%` : "—" },
-    { k: "Vulns remediated", v: m?.vulns_remediated ?? 0 },
   ];
   return (
     <div className="metrics">

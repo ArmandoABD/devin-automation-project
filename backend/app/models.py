@@ -96,3 +96,4 @@ class Metrics(BaseModel):
     in_progress: int = 0
     success_rate: float = 0.0
     vulns_remediated: int = 0  # before - after, summed across runs
+    backlog_fixed: int = 0  # succeeded backlog (code-quality) sessions

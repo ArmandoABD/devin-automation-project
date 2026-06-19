@@ -60,6 +60,7 @@ export interface Metrics {
   in_progress: number;
   success_rate: number;
   vulns_remediated: number;
+  backlog_fixed: number;
 }
 
 export interface Health {
