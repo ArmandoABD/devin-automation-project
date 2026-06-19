@@ -136,6 +136,31 @@ upgrades this handles cleanly.
 
 ## Quick start
 
+### The two repositories
+
+This project spans **two repos**:
+
+| Repo | Role |
+| --- | --- |
+| **`devin-automation-project`** (this one) | The automation — orchestrator, dashboard, Devin integration |
+| **[`superset_armando`](https://github.com/ArmandoABD/superset_armando)** | The Apache Superset fork it operates on — receives the **issues + PRs** Devin creates |
+
+For the before/after scan metrics, `docker-compose.yml` mounts the fork as a
+sibling directory, so clone them **side by side**:
+
+```bash
+git clone https://github.com/ArmandoABD/devin-automation-project.git
+git clone https://github.com/ArmandoABD/superset_armando.git
+# parent/
+# ├── devin-automation-project/   ← run docker compose here
+# └── superset_armando/           ← mounted into the backend for scan metrics
+```
+
+> If you only clone this repo, everything still works — Devin's sessions, the
+> issues/PRs, and all dashboard metrics run via the live API + GitHub. Only the
+> local before/after vulnerability-count delta is skipped (it needs the fork on
+> disk). Adjust the mount in `docker-compose.yml` if your fork lives elsewhere.
+
 ### Option A — Docker (recommended)
 
 ```bash
