@@ -12,6 +12,26 @@ import {
 
 const POLL_MS = 2500;
 
+function timeAgo(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
+function CognitionLogo({ size = 28 }: { size?: number }) {
+  return (
+    <img
+      src="/cognition_logo.jpg"
+      alt="Cognition"
+      width={size}
+      height={size}
+      style={{ borderRadius: 4, objectFit: "contain" }}
+    />
+  );
+}
+
 export default function Dashboard() {
   const [health, setHealth] = useState<Health | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -55,70 +75,118 @@ export default function Dashboard() {
     await refresh();
   };
 
-  const stop = async (id: string) => {
-    await api.stopRun(id);
-    await refresh();
-  };
+  const activeRuns = runs.filter((r) =>
+    ["discovering", "remediating"].includes(r.phase)
+  );
 
   return (
-    <div className="wrap">
-      <header className="top">
-        <div>
-          <h1>Devin Remediation Control</h1>
-          <div className="subtitle">
-            Event-driven autonomous remediation for{" "}
-            {health?.github_repo ?? "apache/superset"}
+    <div className="layout">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <CognitionLogo size={28} />
+          <span>Cognition</span>
+        </div>
+
+        <nav className="sidebar-nav">
+          <div className="nav-item active">
+            <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="8" cy="8" r="6.5" />
+              <path d="M5.5 8l2 2 3-3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Superset Automations
+          </div>
+        </nav>
+
+        {runs.length > 0 && (
+          <>
+            <div className="sidebar-section">Recent runs</div>
+            {runs.slice(0, 5).map((r) => (
+              <div className="sidebar-run-item" key={r.id}>
+                <div className="run-name">{r.vertical} · {r.phase}</div>
+                <div className="run-age">{timeAgo(r.created_at)}</div>
+              </div>
+            ))}
+          </>
+        )}
+      </aside>
+
+      {/* Main content */}
+      <div className="main">
+        <div className="topbar">
+          <span className="topbar-title">Superset Automations</span>
+          <div className="topbar-right">
+            {activeRuns.length > 0 && (
+              <span style={{ fontSize: 12, color: "var(--muted)", display: "flex", alignItems: "center", gap: 6 }}>
+                <span className="dot working" />
+                {activeRuns.length} active
+              </span>
+            )}
+            {health && (
+              <span className={`mode-badge ${health.demo_mode ? "demo" : "live"}`}>
+                <span className={`dot ${health.demo_mode ? "pending" : "working"}`} />
+                {health.demo_mode ? "Demo mode" : "Live · Devin v3"}
+              </span>
+            )}
           </div>
         </div>
-        {health && (
-          <span className={`badge ${health.demo_mode ? "demo" : "live"}`}>
-            <span className="dot working" />
-            {health.demo_mode ? "DEMO MODE" : "LIVE · Devin v3"}
-          </span>
-        )}
-      </header>
 
-      <div className="controls">
-        <span className="muted">Trigger remediation for:</span>
-        <select
-          value={vertical}
-          onChange={(e) => setVertical(e.target.value as Vertical)}
-        >
-          <option value="both">Both verticals</option>
-          <option value="security">Security (urgent CVEs)</option>
-          <option value="backlog">Backlog (code-quality toil)</option>
-        </select>
-        <button className="primary" onClick={trigger} disabled={triggering}>
-          {triggering ? "Triggering…" : "▶ Run Remediation"}
-        </button>
-        <span className="muted" style={{ marginLeft: "auto", fontSize: 12 }}>
-          event trigger → discovery session → per-issue fix sessions → PRs
-        </span>
+        <div className="content">
+          {error && <div className="error-banner">{error}</div>}
+
+          {/* Trigger panel */}
+          <div className="trigger-panel">
+            <div className="trigger-panel-title">Dispatch remediation</div>
+            <div className="trigger-row">
+              <select
+                value={vertical}
+                onChange={(e) => setVertical(e.target.value as Vertical)}
+              >
+                <option value="both">Both verticals</option>
+                <option value="security">Security — urgent CVEs</option>
+                <option value="backlog">Backlog — code-quality toil</option>
+              </select>
+              <button className="primary" onClick={trigger} disabled={triggering}>
+                {triggering ? (
+                  <>
+                    <span className="dot working" style={{ width: 6, height: 6 }} />
+                    Dispatching…
+                  </>
+                ) : (
+                  <>
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M3 2l11 6-11 6V2z" />
+                    </svg>
+                    Run remediation
+                  </>
+                )}
+              </button>
+              <span className="trigger-hint">
+                trigger → discovery → fix sessions → PRs
+              </span>
+            </div>
+          </div>
+
+          {/* Metrics */}
+          <MetricsRow m={metrics} />
+
+          {/* Runs */}
+          <div className="section-title">Runs</div>
+          {runs.length === 0 ? (
+            <div className="empty-state">
+              <svg className="empty-icon" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="20" cy="20" r="18" />
+                <path d="M13 20l5 5 9-9" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              No runs yet. Click <b>Run remediation</b> to dispatch Devin.
+            </div>
+          ) : (
+            runs.map((run) => (
+              <RunCard key={run.id} run={run} onVerify={() => verify(run.id)} />
+            ))
+          )}
+        </div>
       </div>
-
-      {error && (
-        <div className="empty" style={{ color: "var(--red)" }}>
-          {error}
-        </div>
-      )}
-
-      <MetricsRow m={metrics} />
-
-      <div className="section-title">Runs</div>
-      {runs.length === 0 ? (
-        <div className="empty">
-          No runs yet. Click <b>Run Remediation</b> to dispatch Devin.
-        </div>
-      ) : (
-        runs.map((run) => (
-          <RunCard
-            key={run.id}
-            run={run}
-            onVerify={() => verify(run.id)}
-            onStop={() => stop(run.id)}
-          />
-        ))
-      )}
     </div>
   );
 }
@@ -128,10 +196,7 @@ function MetricsRow({ m }: { m: Metrics | null }) {
     { k: "PRs opened", v: m?.prs_opened ?? 0 },
     { k: "Succeeded", v: m?.succeeded ?? 0 },
     { k: "In progress", v: m?.in_progress ?? 0 },
-    {
-      k: "Success rate",
-      v: m ? `${Math.round(m.success_rate * 100)}%` : "—",
-    },
+    { k: "Success rate", v: m ? `${Math.round(m.success_rate * 100)}%` : "—" },
     { k: "Vulns remediated", v: m?.vulns_remediated ?? 0 },
   ];
   return (
@@ -146,46 +211,33 @@ function MetricsRow({ m }: { m: Metrics | null }) {
   );
 }
 
-function RunCard({
-  run,
-  onVerify,
-  onStop,
-}: {
-  run: Run;
-  onVerify: () => void;
-  onStop: () => void;
-}) {
+function RunCard({ run, onVerify }: { run: Run; onVerify: () => void }) {
   const before = (run.before?.py_vulns ?? 0) + (run.before?.npm_vulns ?? 0);
   const after = (run.after?.py_vulns ?? 0) + (run.after?.npm_vulns ?? 0);
   const hasDelta = run.before != null && run.after != null;
-  const active = run.phase === "discovering" || run.phase === "remediating";
 
   return (
     <div className="run">
       <div className="run-head">
-        <div>
-          <span className="id">{run.id}</span>{" "}
-          <span className="muted" style={{ fontSize: 12 }}>
-            · {run.vertical}
-          </span>
+        <div className="run-head-left">
+          <span className="run-id">{run.id}</span>
+          <span className="run-vertical">{run.vertical}</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {active && (
-            <button className="ghost stop" onClick={onStop}>
-              ■ Stop
-            </button>
-          )}
-          <span className={`phase ${run.phase}`}>{run.phase}</span>
-        </div>
+        <span className={`phase ${run.phase}`}>{run.phase}</span>
       </div>
 
       {run.discovery_session_url && (
-        <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
-          Discovery:{" "}
+        <div className="discovery-link">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="8" cy="8" r="6.5" />
+            <path d="M8 5v4l2.5 2.5" strokeLinecap="round" />
+          </svg>
+          Discovery session:{" "}
           <a href={run.discovery_session_url} target="_blank" rel="noreferrer">
-            view Devin session ↗
-          </a>{" "}
-          · {run.findings.length} issues found
+            view in Devin ↗
+          </a>
+          {" · "}
+          {run.findings.length} issue{run.findings.length !== 1 ? "s" : ""} found
         </div>
       )}
 
@@ -195,7 +247,7 @@ function RunCard({
             <tr>
               <th>Finding</th>
               <th>Type</th>
-              <th>Devin session</th>
+              <th>Session</th>
               <th>Status</th>
               <th>Tests</th>
               <th>PR</th>
@@ -211,26 +263,33 @@ function RunCard({
 
       {hasDelta && (
         <div className="impact">
-          Impact:&nbsp;
+          <span className="impact-label">Impact</span>
           <span>
-            vulnerabilities {before} → <b>{after}</b>
+            Vulnerabilities{" "}
+            <span style={{ color: "var(--text-2)", fontWeight: 500 }}>{before}</span>
+            {" → "}
+            <span className="impact-delta">{after}</span>
           </span>
           {run.after?.any_types != null && (
-            <span>· any-types remaining: {run.after.any_types}</span>
+            <span>any-types remaining: {run.after.any_types}</span>
           )}
         </div>
       )}
 
-      {run.phase === "completed" && (
-        <button
-          className="ghost"
-          style={{ marginTop: 12 }}
-          onClick={onVerify}
-        >
-          ↻ Re-scan (verify post-merge impact)
-        </button>
+      {(run.phase === "completed" || run.error) && (
+        <div className="run-actions">
+          {run.phase === "completed" && (
+            <button className="ghost" onClick={onVerify}>
+              ↻ Re-scan to verify impact
+            </button>
+          )}
+          {run.error && (
+            <span style={{ fontSize: 12, color: "var(--red)" }}>
+              Error: {run.error}
+            </span>
+          )}
+        </div>
       )}
-      {run.error && <div className="fail">Error: {run.error}</div>}
     </div>
   );
 }
@@ -238,14 +297,14 @@ function RunCard({
 function SessionRow({ s }: { s: RemediationSession }) {
   return (
     <tr>
-      <td>{s.finding_title}</td>
+      <td style={{ color: "var(--text)", fontWeight: 450 }}>{s.finding_title}</td>
       <td>
         <span className={`vtag ${s.vertical}`}>{s.vertical}</span>
       </td>
       <td>
         {s.session_url ? (
-          <a href={s.session_url} target="_blank" rel="noreferrer">
-            {s.session_id ?? "open"} ↗
+          <a href={s.session_url} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+            {s.session_id?.slice(0, 12) ?? "open"} ↗
           </a>
         ) : (
           <span className="muted">—</span>
@@ -268,8 +327,8 @@ function SessionRow({ s }: { s: RemediationSession }) {
       </td>
       <td>
         {s.pr_url ? (
-          <a href={s.pr_url} target="_blank" rel="noreferrer">
-            PR ↗
+          <a href={s.pr_url} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+            View PR ↗
           </a>
         ) : (
           <span className="muted">—</span>
