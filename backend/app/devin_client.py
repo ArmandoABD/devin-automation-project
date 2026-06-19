@@ -104,6 +104,45 @@ class DevinClient:
             )
             resp.raise_for_status()
 
+    # --- schedules (recurring sessions) -------------------------------------
+
+    def _schedules_url(self) -> str:
+        return f"{self._base}/organizations/{self._org}/schedules"
+
+    async def create_schedule(
+        self, *, name: str, prompt: str, cron_schedule: str, timezone: str
+    ) -> dict[str, Any]:
+        """Create a recurring scheduled session (v3 Schedules API).
+
+        The v3 API takes the cron string in the `frequency` field.
+        """
+        body = {
+            "name": name,
+            "prompt": prompt,
+            "frequency": cron_schedule,
+            "timezone": timezone,
+        }
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                self._schedules_url(), headers=self._headers, json=body
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+    async def list_schedules(self) -> list[dict[str, Any]]:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.get(self._schedules_url(), headers=self._headers)
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("items", data) if isinstance(data, dict) else data
+
+    async def delete_schedule(self, schedule_id: str) -> None:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.delete(
+                f"{self._schedules_url()}/{schedule_id}", headers=self._headers
+            )
+            resp.raise_for_status()
+
     @staticmethod
     def session_state(payload: dict[str, Any]) -> str:
         """Derive internal state from v3 `status` + `status_detail`."""

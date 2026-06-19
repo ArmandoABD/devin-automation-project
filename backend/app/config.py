@@ -39,6 +39,11 @@ class Settings:
         self.max_sessions_per_run: int = int(
             os.environ.get("MAX_SESSIONS_PER_RUN", "6")
         )
+        # Native Devin schedule: daily cron + timezone for the recurring run.
+        self.schedule_cron: str = os.environ.get("SCHEDULE_CRON", "0 9 * * *")
+        self.schedule_timezone: str = os.environ.get(
+            "SCHEDULE_TIMEZONE", "America/Los_Angeles"
+        )
 
 
 @lru_cache

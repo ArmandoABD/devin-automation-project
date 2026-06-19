@@ -122,3 +122,39 @@ IMPORTANT: end your final message with a single fenced ```json block containing
 {{"pr_url": "...", "tests_pass": true/false, "is_draft": true/false, "summary":
 "one-line description of what you changed"}}. This block is parsed
 programmatically."""
+
+
+def scheduled_remediation_prompt() -> str:
+    """Self-contained prompt for the recurring scheduled run.
+
+    Unlike on-demand runs (which the orchestrator fans out into one session per
+    issue), a Devin Schedule fires a single session, so this prompt drives the
+    whole loop — discover, file issues, fix, and open PRs — end to end.
+    """
+    s = get_settings()
+    repo = s.github_repo
+    return f"""You are the scheduled Remediation Engineer for {repo}. Run the
+full remediation loop autonomously across BOTH verticals.
+
+1. DISCOVER
+   - Vulnerabilities: run `pip-audit -r requirements/base.txt` and
+     `npm audit --json` (frontend); collect issues that HAVE a fix available.
+   - Code-quality backlog: find a small, well-scoped cleanup (e.g. `any` types
+     in one src subdirectory, or legacy SQLAlchemy `.query()` in one module).
+   - Cap the total at ~6 findings for a clean run.
+
+2. FILE ISSUES
+   - For each finding, reuse an existing open GitHub issue if one already covers
+     it; otherwise create one in {repo} with evidence, acceptance criteria, and
+     labels ["devin", vertical, severity].
+
+3. REMEDIATE
+   - Fix each finding on its own branch and run the relevant checks
+     (`pre-commit run` for touched files, plus affected tests).
+   - Open a pull request that closes the issue. If tests pass, open it ready for
+     review; if tests fail or could not run, open it as a DRAFT labelled
+     `needs-human`. Never open a non-draft PR with failing tests.
+
+End your final message with a fenced ```json block:
+{{"prs": [{{"issue_url": "...", "pr_url": "...", "tests_pass": true/false,
+"is_draft": true/false}}], "summary": "what this run accomplished"}}."""

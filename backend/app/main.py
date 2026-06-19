@@ -10,7 +10,10 @@ from .config import get_settings
 from .devin_client import DevinClient
 from .models import CreateRunRequest, Metrics, Run
 from .orchestrator import create_run, stop_run
+from .prompts import scheduled_remediation_prompt
 from .store import store
+
+SCHEDULE_NAME = "Superset Remediation Engineer — daily"
 
 app = FastAPI(title="Devin Remediation Orchestrator", version="1.0.0")
 
@@ -89,6 +92,50 @@ async def verify_impact(run_id: str) -> Run:
 @app.get("/api/metrics", response_model=Metrics)
 async def metrics() -> Metrics:
     return store.metrics()
+
+
+@app.get("/api/schedule")
+async def list_schedule() -> dict:
+    """List Devin schedules; flags whether our daily remediation one exists."""
+    s = get_settings()
+    if s.demo_mode:
+        return {"demo_mode": True, "schedules": []}
+    schedules = await DevinClient().list_schedules()
+    return {
+        "demo_mode": False,
+        "cron": s.schedule_cron,
+        "timezone": s.schedule_timezone,
+        "schedules": schedules,
+    }
+
+
+@app.post("/api/schedule")
+async def create_schedule() -> dict:
+    """Create the recurring daily Remediation Engineer run via Devin Schedules.
+
+    Idempotent: if a schedule with our name already exists, returns it instead
+    of creating a duplicate.
+    """
+    s = get_settings()
+    if s.demo_mode:
+        raise HTTPException(status_code=400, detail="not available in demo mode")
+    client = DevinClient()
+    for sched in await client.list_schedules():
+        if sched.get("name") == SCHEDULE_NAME:
+            return {"created": False, "schedule": sched}
+    created = await client.create_schedule(
+        name=SCHEDULE_NAME,
+        prompt=scheduled_remediation_prompt(),
+        cron_schedule=s.schedule_cron,
+        timezone=s.schedule_timezone,
+    )
+    return {"created": True, "schedule": created}
+
+
+@app.delete("/api/schedule/{schedule_id}")
+async def delete_schedule(schedule_id: str) -> dict:
+    await DevinClient().delete_schedule(schedule_id)
+    return {"deleted": True, "schedule_id": schedule_id}
 
 
 @app.post("/api/webhook")
