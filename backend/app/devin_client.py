@@ -51,6 +51,7 @@ class DevinClient:
         title: Optional[str] = None,
         tags: Optional[list[str]] = None,
         idempotent: bool = False,
+        max_acu_limit: int = 0,
     ) -> dict[str, Any]:
         """Create a session; returns {session_id, url, status}."""
         body: dict[str, Any] = {"prompt": prompt}
@@ -60,6 +61,8 @@ class DevinClient:
             body["tags"] = tags
         if idempotent:
             body["idempotent"] = idempotent
+        if max_acu_limit > 0:
+            body["max_acu_limit"] = max_acu_limit
 
         async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(

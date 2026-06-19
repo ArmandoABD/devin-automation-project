@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 import subprocess
+import tempfile
 from datetime import datetime, timezone
 
 from .config import get_settings
 from .models import ScanSnapshot
+
+# Matches a simple pinned requirement (optionally with extras), ignoring any
+# trailing environment markers / hashes: e.g. "flask==2.3.3", "celery[redis]==5".
+_PINNED_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\[\]-]*==[^\s;#\\]+")
 
 
 def _run(cmd: list[str], cwd: str) -> tuple[int, str]:
@@ -33,9 +40,40 @@ def _npm_vuln_count(repo: str) -> int | None:
 
 
 def _py_vuln_count(repo: str) -> int | None:
-    _, out = _run(
-        ["pip-audit", "-r", "requirements/base.txt", "--format", "json"], repo
+    """Audit the pinned Python deps.
+
+    The repo's `requirements/base.txt` references local editable packages that
+    pip-audit would try to build (and fail on, since the mount is read-only). So
+    we extract just the `name==version` pins into a temp file and audit that with
+    `--no-deps` — exactly the published-CVE check we want.
+    """
+    req = os.path.join(repo, "requirements", "base.txt")
+    try:
+        with open(req) as f:
+            pins = [
+                m.group(0)
+                for line in f
+                if (m := _PINNED_RE.match(line.strip()))
+            ]
+    except OSError:
+        return None
+    if not pins:
+        return None
+
+    tmp = tempfile.NamedTemporaryFile(
+        "w", suffix=".txt", dir="/tmp", delete=False
     )
+    try:
+        tmp.write("\n".join(pins) + "\n")
+        tmp.close()
+        _, out = _run(
+            ["pip-audit", "-r", tmp.name, "--no-deps", "--format", "json"], "/tmp"
+        )
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
     if not out:
         return None
     try:

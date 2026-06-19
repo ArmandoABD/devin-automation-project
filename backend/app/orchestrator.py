@@ -13,79 +13,9 @@ from .models import Finding, RemediationSession, Run, Vertical
 from .prompts import discovery_prompt, remediation_prompt
 from .store import store
 
-REPO = get_settings().github_repo
-
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-_DEMO_FINDINGS: list[Finding] = [
-    Finding(
-        id="pyjwt",
-        vertical=Vertical.SECURITY,
-        severity="high",
-        title="fix(deps): upgrade PyJWT to 2.13.0 to remediate 5 CVEs",
-        target="pyjwt",
-        labels=["devin", "security", "high"],
-        body="pip-audit flagged PyJWT 2.12.0 (PYSEC-2026-175..179). Auth-critical.",
-    ),
-    Finding(
-        id="flask",
-        vertical=Vertical.SECURITY,
-        severity="high",
-        title="fix(deps): upgrade Flask to 3.1.3 (CVE-2026-27205)",
-        target="flask",
-        labels=["devin", "security", "high"],
-        body="pip-audit flagged Flask 2.3.3 with CVE-2026-27205.",
-    ),
-    Finding(
-        id="paramiko",
-        vertical=Vertical.SECURITY,
-        severity="moderate",
-        title="fix(deps): upgrade paramiko (CVE-2026-44405)",
-        target="paramiko",
-        labels=["devin", "security", "moderate"],
-        body="pip-audit flagged paramiko 3.5.1 with CVE-2026-44405.",
-    ),
-    Finding(
-        id="any-dashboard",
-        vertical=Vertical.BACKLOG,
-        severity="low",
-        title="refactor(types): remove `any` types in src/dashboard/",
-        target="superset-frontend/src/dashboard",
-        labels=["devin", "backlog", "code-quality"],
-        body="Replace `any` usages with explicit TypeScript types (1,139 occurrences in this directory).",
-    ),
-    Finding(
-        id="any-explore",
-        vertical=Vertical.BACKLOG,
-        severity="low",
-        title="refactor(types): remove `any` types in src/explore/",
-        target="superset-frontend/src/explore",
-        labels=["devin", "backlog", "code-quality"],
-        body="Replace `any` usages with explicit TypeScript types in the explore module.",
-    ),
-    Finding(
-        id="sqla-2.0",
-        vertical=Vertical.BACKLOG,
-        severity="low",
-        title="refactor: migrate legacy .query() to SQLAlchemy 2.0 select()",
-        target="superset/daos",
-        labels=["devin", "backlog", "code-quality"],
-        body="Migrate a module from legacy .query() to 2.0 select() syntax.",
-    ),
-]
-
-
-def _demo_findings(vertical: Vertical) -> list[Finding]:
-    out = []
-    for f in _DEMO_FINDINGS:
-        if vertical == Vertical.BOTH or f.vertical == vertical:
-            copy = f.model_copy()
-            copy.issue_url = f"https://github.com/{REPO}/issues/{abs(hash(f.id)) % 900 + 100}"
-            out.append(copy)
-    return out
 
 
 # Live orchestration tasks, keyed by run id, so a run can be cancelled.
@@ -116,12 +46,11 @@ async def stop_run(run_id: str) -> Run | None:
         task.cancel()
 
     # 2. Archive every Devin session that isn't already terminal (stops ACUs).
-    if not get_settings().demo_mode:
-        client = DevinClient()
-        ids = [run.discovery_session_id] + [s.session_id for s in run.sessions]
-        await asyncio.gather(
-            *(_archive(client, sid) for sid in ids if sid), return_exceptions=True
-        )
+    client = DevinClient()
+    ids = [run.discovery_session_id] + [s.session_id for s in run.sessions]
+    await asyncio.gather(
+        *(_archive(client, sid) for sid in ids if sid), return_exceptions=True
+    )
 
     # 3. Mark the run + any unfinished sessions as stopped.
     for s in run.sessions:
@@ -147,14 +76,15 @@ async def _drive(run_id: str) -> None:
     if not run:
         return
     try:
+        if not s.has_devin_key:
+            raise RuntimeError(
+                "No Devin API key configured. Set DEVIN_API_KEY and "
+                "DEVIN_ORG_ID in your .env to run."
+            )
         run.before = scanner.snapshot()
         store.save(run)
-        if s.demo_mode:
-            # _drive_demo computes its own before/after impact delta.
-            await _drive_demo(run)
-        else:
-            await _drive_live(run)
-            run.after = scanner.snapshot()
+        await _drive_live(run)
+        run.after = scanner.snapshot()
         run.phase = "completed"
     except Exception as exc:
         run.phase = "failed"
@@ -172,6 +102,7 @@ async def _drive_live(run: Run) -> None:
         discovery_prompt(run.vertical),
         title=f"[{run.id}] discovery ({run.vertical.value})",
         tags=["devin-automation", "discovery", run.id],
+        max_acu_limit=s.max_acu_limit,
     )
     run.discovery_session_id = disc.get("session_id")
     run.discovery_session_url = disc.get("url")
@@ -210,6 +141,7 @@ async def _remediate(client: DevinClient, run: Run, finding: Finding, idx: int) 
         remediation_prompt(finding.title, finding.body, finding.target, finding.issue_url),
         title=f"[{run.id}] fix: {finding.title[:60]}",
         tags=["devin-automation", "fix", run.id],
+        max_acu_limit=get_settings().max_acu_limit,
     )
     sess.session_id = created.get("session_id")
     sess.session_url = created.get("url")
@@ -298,62 +230,3 @@ def _limit_per_vertical(findings: list[Finding], per: int) -> list[Finding]:
     return kept
 
 
-async def _drive_demo(run: Run) -> None:
-    run.discovery_session_url = f"https://app.devin.ai/sessions/demo-{run.id}"
-    run.phase = "discovering"
-    store.save(run)
-    await asyncio.sleep(3)  # discovery "runs"
-
-    findings = _demo_findings(run.vertical)[: get_settings().max_sessions_per_run]
-    run.findings = findings
-    run.sessions = [
-        RemediationSession(
-            finding_id=f.id,
-            finding_title=f.title,
-            vertical=f.vertical,
-            session_id=f"devin-demo-{f.id}",
-            session_url=f"https://app.devin.ai/sessions/demo-{f.id}",
-            status="pending",
-        )
-        for f in findings
-    ]
-    run.phase = "remediating"
-    store.save(run)
-
-    await asyncio.gather(*(_remediate_demo(run, i) for i in range(len(findings))))
-
-    # Simulate the impact delta the post-merge re-scan would reveal.
-    if run.before:
-        run.after = run.before.model_copy()
-        fixed = sum(1 for f in findings if f.vertical == Vertical.SECURITY)
-        if run.after.py_vulns is not None:
-            run.after.py_vulns = max(0, run.after.py_vulns - fixed)
-        elif run.before.py_vulns is None:
-            # No local repo mounted: fabricate a believable before/after.
-            run.before.py_vulns = 11
-            run.after.py_vulns = max(0, 11 - fixed)
-
-
-async def _remediate_demo(run: Run, idx: int) -> None:
-    sess = run.sessions[idx]
-    finding = run.findings[idx]
-    sess.status = "working"
-    sess.started_at = _now()
-    store.save(run)
-
-    # Stagger completion so the dashboard shows live progress.
-    await asyncio.sleep(4 + idx * 3)
-
-    # One finding "fails" tests to exercise the failure path in observability.
-    fails = finding.id == "any-explore"
-    sess.status = "finished"
-    sess.tests_pass = not fails
-    sess.is_draft = fails  # failing tests -> draft PR
-    sess.pr_url = f"https://github.com/{REPO}/pull/{abs(hash(finding.id)) % 900 + 100}"
-    sess.summary = (
-        "Upgraded dependency and verified test suite"
-        if finding.vertical == Vertical.SECURITY
-        else "Replaced any-types with explicit types"
-    )
-    sess.finished_at = _now()
-    store.save(run)

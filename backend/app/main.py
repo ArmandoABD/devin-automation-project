@@ -30,7 +30,7 @@ async def health() -> dict:
     s = get_settings()
     return {
         "status": "ok",
-        "demo_mode": s.demo_mode,
+        "devin_configured": s.has_devin_key,
         "devin_base_url": s.devin_base_url,
         "github_repo": s.github_repo,
         "repo_scanning": bool(s.repo_path),
@@ -39,13 +39,13 @@ async def health() -> dict:
 
 @app.get("/api/verify-credentials")
 async def verify_credentials() -> dict:
-    """Confirm the Devin key works (GET /v3/self). No-op in demo mode."""
+    """Confirm the Devin key works (GET /v3/self)."""
     s = get_settings()
-    if s.demo_mode:
-        return {"demo_mode": True, "verified": False}
+    if not s.has_devin_key:
+        raise HTTPException(status_code=400, detail="No Devin API key configured")
     try:
         principal = await DevinClient().verify()
-        return {"demo_mode": False, "verified": True, "principal": principal}
+        return {"verified": True, "principal": principal}
     except Exception as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
@@ -98,11 +98,10 @@ async def metrics() -> Metrics:
 async def list_schedule() -> dict:
     """List Devin schedules; flags whether our daily remediation one exists."""
     s = get_settings()
-    if s.demo_mode:
-        return {"demo_mode": True, "schedules": []}
+    if not s.has_devin_key:
+        raise HTTPException(status_code=400, detail="No Devin API key configured")
     schedules = await DevinClient().list_schedules()
     return {
-        "demo_mode": False,
         "cron": s.schedule_cron,
         "timezone": s.schedule_timezone,
         "schedules": schedules,
@@ -117,8 +116,8 @@ async def create_schedule() -> dict:
     of creating a duplicate.
     """
     s = get_settings()
-    if s.demo_mode:
-        raise HTTPException(status_code=400, detail="not available in demo mode")
+    if not s.has_devin_key:
+        raise HTTPException(status_code=400, detail="No Devin API key configured")
     client = DevinClient()
     for sched in await client.list_schedules():
         if sched.get("name") == SCHEDULE_NAME:

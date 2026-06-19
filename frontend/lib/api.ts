@@ -66,7 +66,7 @@ export interface Metrics {
 
 export interface Health {
   status: string;
-  demo_mode: boolean;
+  devin_configured: boolean;
   devin_base_url: string;
   github_repo: string;
   repo_scanning: boolean;

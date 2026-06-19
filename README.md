@@ -7,12 +7,44 @@ chronically under-serve:
 
 | Vertical | What it tackles | Why it rots |
 | --- | --- | --- |
-| 🔴 **Vulnerabilities** (urgent) | Dependency CVEs surfaced by `pip-audit` / `npm audit` (e.g. `flask`, `pyjwt`, `paramiko`) | "We'll patch it next sprint" |
-| 🔵 **Code-quality backlog** (toil) | Trivial-but-endless cleanup — `any` types, legacy SQLAlchemy `.query()`, etc. | Never wins prioritization |
+| 🔴 **Vulnerabilities** (urgent) | CVE dependency upgrades | "We'll patch it next sprint" |
+| 🔵 **Code-quality backlog** (toil) | SQLAlchemy 1.x → 2.0 migration | Never wins prioritization |
 
 Both are mechanical, well-scoped, and high-volume — exactly the shape an
 autonomous coding agent excels at, and exactly the shape a human team will always
 deprioritize.
+
+> 🎥 **[Watch the 5-minute walkthrough on Loom →](https://www.loom.com/share/ab1e263927b64be4a30cbc1506b6c404)**
+
+### The two task types in detail
+
+**🔴 CVE dependency upgrades.** Superset pins exact package versions in
+`requirements/base.txt`, and some have published CVEs. `pip-audit` surfaces the
+precise *package / version / CVE / fixed-version* triplet — e.g. **Pillow 9.3.0 →
+9.3.1 (CVE-2023-44271)**. Each becomes a GitHub issue with an unambiguous
+instruction: bump the version, run the suite, open a PR. This is the *ideal* Devin
+task — zero judgment, verifiable output, and a narrative that lands instantly with
+a security-conscious VP: **automatic CVE remediation with no engineer in the loop.**
+
+**🔵 SQLAlchemy legacy `.query()` migration.** Superset was built on SQLAlchemy
+1.x, whose session-based `.query()` API is deprecated in 2.0 and slated for
+removal. A grep surfaces modules still using the old pattern; each becomes an issue
+asking Devin to rewrite the ORM calls to the modern `select()` style. It's a
+forward-compatibility refactor (not a version bump) — equally well-scoped and
+repeatable, and it shows Devin handling **real code refactoring**, a stronger
+technical demo than dependency bumps alone.
+
+> **Why only one of each?** The default config scopes a run to exactly two issues
+> (one CVE upgrade + one SQLAlchemy migration) **purely for cost / Devin usage-limit
+> reasons** — each issue spawns its own Devin session, and ACUs are metered. This
+> is a demo-budget choice, **not** a capability limit: the system is built to fan
+> out across as many issues as discovery finds. Flip the guards off
+> (`FOCUSED_MODE=false`, `FINDINGS_PER_VERTICAL=0`, `FAST_MODE=false`) for broad,
+> open-ended discovery (npm + pip vulns, `any`-type cleanup, etc.) at full scale.
+>
+> The relevant cost controls: `FINDINGS_PER_VERTICAL` (issues per vertical),
+> `MAX_SESSIONS_PER_RUN` (concurrent fix sessions), and `MAX_ACU_LIMIT`
+> (hard per-session ACU ceiling).
 
 ## How it runs
 
@@ -53,15 +85,14 @@ are opened ready-for-review.
 
 ## What the reporting shows
 
-The dashboard answers *"how would an engineering leader know this is working?"*
-in real time:
+The dashboard answers in real time:
 
-- **Sessions in progress** — how many Devin agents are actively working right now
+- **Fixing sessions in progress** — how many fix sessions are actively working
 - **PRs opened** — pull requests created across runs
 - **Succeeded** — fixes that **passed their tests and are ready to merge**
 - **Success rate** — succeeded ÷ (succeeded + failed)
-- **Vulnerabilities fixed** & **Code-quality issues fixed** — the realized impact,
-  which lands as the PRs are reviewed and merged
+- **Vulnerabilities fixed** — before/after `pip-audit` delta (needs a mounted checkout)
+- **Code-quality issues fixed** — count of succeeded code-quality fix sessions
 
 ## Why Devin (and not a script)
 
@@ -75,30 +106,10 @@ upgrades this handles cleanly.
 
 ## Architecture
 
-```
-                         ┌─────────────────────── EVENT TRIGGERS ───────────────────────┐
-                         │  Dashboard button   ·   POST /api/webhook   ·   v3 Schedule   │
-                         └───────────────────────────────┬──────────────────────────────┘
-                                                          ▼
-   ┌──────────────────────────── FastAPI orchestrator (backend/) ────────────────────────────┐
-   │  1. snapshot()  ── pip-audit / npm audit  ──►  BEFORE metrics                             │
-   │  2. DISCOVERY   ── Devin session ──►  scans repo, files GitHub issues, returns findings   │
-   │  3. REMEDIATION ── one Devin session per finding (concurrent) ──►  opens a PR each        │
-   │  4. snapshot()  ── re-scan  ──►  AFTER metrics  (before/after = proof of impact)          │
-   └───────────────────────────────────────────┬──────────────────────────────────────────────┘
-                                                ▼
-   Next.js dashboard (frontend/)  ── polls /api/runs + /api/metrics ──►  live status, PRs, KPIs
-                                                │
-                         GitHub fork (ArmandoABD/superset_armando) ◄── issues + PRs land here
-```
-
 - **Backend** — FastAPI. `orchestrator.py` is the state machine; `devin_client.py`
   wraps the Devin **v3** Organization API; `scanner.py` produces deterministic
   before/after metrics; `store.py` tracks runs.
 - **Frontend** — Next.js (App Router) single-pane control room.
-- **DEMO_MODE** — with no Devin key, the full lifecycle is **simulated** with the
-  real findings from the Superset scan, so the demo runs offline and
-  deterministically. Drop in a `cog_` key to go live.
 
 ### Devin v3 API surface used
 | Call | Endpoint |
@@ -107,6 +118,19 @@ upgrades this handles cleanly.
 | Create session | `POST /v3/organizations/{org}/sessions` |
 | Poll status | `GET /v3/organizations/{org}/sessions/{id}` |
 | Read messages | `GET /v3/organizations/{org}/sessions/{id}/messages` |
+| Stop session | `POST /v3/organizations/{org}/sessions/{id}/archive` |
+| Create schedule | `POST /v3/organizations/{org}/schedules` |
+
+### Configuration flags (env vars)
+| Flag | Default | Effect |
+| --- | --- | --- |
+| `FOCUSED_MODE` | `true` | Restrict to CVE upgrades + SQLAlchemy migration (vs. open-ended) |
+| `FINDINGS_PER_VERTICAL` | `1` | Max findings per vertical (`0` = unlimited, ~6 total) |
+| `FAST_MODE` | `true` | Quick, time-boxed investigation — no repo exploration, skip the slow full test suite, minimal change |
+| `MAX_ACU_LIMIT` | `10` | Hard per-session ACU spend ceiling (`0` = no cap) |
+| `MAX_SESSIONS_PER_RUN` | `6` | Cap on concurrent fix sessions per run |
+| `SCHEDULE_CRON` / `SCHEDULE_TIMEZONE` | `0 9 * * *` / `America/Los_Angeles` | Daily schedule timing |
+| `REPO_PATH` | `/superset` | Container path to the Superset checkout (mounted from `../superset_armando`) for before/after scan metrics |
 
 ---
 
@@ -115,16 +139,16 @@ upgrades this handles cleanly.
 ### Option A — Docker (recommended)
 
 ```bash
-cp .env.example .env        # optional: add DEVIN_API_KEY + DEVIN_ORG_ID for LIVE mode
+cp .env.example .env        # add DEVIN_API_KEY + DEVIN_ORG_ID + GITHUB_TOKEN
 docker compose up --build
 ```
 
 - Dashboard → http://localhost:3000
 - API docs → http://localhost:8000/docs
 
-With an empty `.env`, it boots in **DEMO_MODE** — click **Run remediation** and
-watch the full discovery → fix → PR → impact lifecycle play out with realistic
-simulated data (no key or network needed).
+Add your Devin v3 service-user key and org ID to `.env` (see **Going live**
+below), then click **Run remediation** to dispatch Devin against the live repo.
+Verify your key first with `curl localhost:8000/api/verify-credentials`.
 
 ### Option B — local dev
 
@@ -149,9 +173,9 @@ cd frontend && npm install && npm run dev
    GITHUB_TOKEN=ghp_...        # PAT with repo scope on the fork
    GITHUB_REPO=ArmandoABD/superset_armando
    ```
-3. (Optional) enable real before/after scans by mounting a local Superset
-   checkout — uncomment the `volumes:` block in `docker-compose.yml` and set
-   `REPO_PATH=/superset`.
+3. Before/after scan metrics work out of the box: `docker-compose.yml` mounts
+   `../superset_armando` → `/superset` (read-only) with `REPO_PATH=/superset`.
+   Adjust the mount if your fork lives elsewhere.
 4. `docker compose up --build` → the badge flips to **LIVE · Devin v3**.
 
 Verify the key end-to-end: `curl localhost:8000/api/verify-credentials`.
@@ -177,11 +201,15 @@ and `GET /api/runs` — which the frontend polls every few seconds. Each run car
 also exposes per-session status dots (pending → working → finished), the linked
 Devin session, and the resulting PR.
 
-**Proof of impact (before/after).** When a local Superset checkout is mounted
-(`REPO_PATH`), the engineer takes a `pip-audit`/`npm audit` snapshot at the start
-of a run and again on demand via the **Re-scan** button — so once PRs merge you
-can watch the vulnerability count drop (`32 → 29`). Without the mount, the
+**Proof of impact (before/after).** With the Superset checkout mounted at
+`REPO_PATH`, the engineer runs `pip-audit` against `requirements/base.txt` at the
+start of a run and again on demand via the **Re-scan** button — so once a CVE fix
+lands you can watch the vulnerability count drop (e.g. `7 → 6`). The fix lives on
+a PR branch, so the count moves after the change reaches the local checkout
+(merge + pull, or apply the branch locally). Without the mount, the
 session/PR/success metrics still work; only the before/after delta is skipped.
+(Python CVEs use `pip-audit` inside the container; npm auditing needs Node and is
+not run in the backend image.)
 
 ---
 

@@ -5,11 +5,7 @@ from functools import lru_cache
 
 
 class Settings:
-    """Runtime settings sourced from the environment.
-
-    DEMO_MODE lets the whole system run end-to-end without a live Devin key,
-    so the dashboard and orchestration flow are fully demoable offline.
-    """
+    """Runtime settings sourced from the environment."""
 
     def __init__(self) -> None:
         # v3 service-user key (cog_ prefix). v1/v2 keys (apk_*) also work if the
@@ -28,11 +24,9 @@ class Settings:
         # Path to a local checkout of the fork, used by the scanner for
         # deterministic before/after metrics. Optional.
         self.repo_path: str = os.environ.get("REPO_PATH", "")
-        # Force demo mode, or auto-enable it when no Devin key is present.
-        self.demo_mode: bool = (
-            os.environ.get("DEMO_MODE", "").lower() in {"1", "true", "yes"}
-            or not self.devin_api_key
-        )
+        # Whether a Devin API key is configured. Without it the system can't
+        # create sessions and the API surfaces a clear error.
+        self.has_devin_key: bool = bool(self.devin_api_key)
         # How often the orchestrator polls Devin for session status (seconds).
         self.poll_interval: float = float(os.environ.get("POLL_INTERVAL", "10"))
         # Ceiling on remediation sessions started per run (cost guard).
@@ -52,6 +46,17 @@ class Settings:
             "true",
             "yes",
         }
+        # Fast mode: time-box Devin to a quick investigation — no repo
+        # exploration, skip the slow full test suite, minimal change. Trades
+        # thoroughness for speed; ideal for a live demo.
+        self.fast_mode: bool = os.environ.get("FAST_MODE", "false").lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+        # Hard per-session ACU spend ceiling (0 = no cap). Devin stops the
+        # session when it hits this, so cost can never run away.
+        self.max_acu_limit: int = int(os.environ.get("MAX_ACU_LIMIT", "0"))
         # Native Devin schedule: daily cron + timezone for the recurring run.
         self.schedule_cron: str = os.environ.get("SCHEDULE_CRON", "0 9 * * *")
         self.schedule_timezone: str = os.environ.get(
