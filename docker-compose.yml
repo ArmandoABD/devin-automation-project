@@ -13,6 +13,12 @@ services:
       DEMO_MODE: ${DEMO_MODE:-}
       # Cap remediation sessions per run (ACU cost guard). Default 6.
       MAX_SESSIONS_PER_RUN: ${MAX_SESSIONS_PER_RUN:-6}
+      # Findings per vertical: 1 = focused demo (1 CVE + 1 code-quality = 2),
+      # 0 = unlimited (~6) for a full real run.
+      FINDINGS_PER_VERTICAL: ${FINDINGS_PER_VERTICAL:-1}
+      # Focused mode: narrow to CVE dependency upgrades + SQLAlchemy .query()->
+      # select() migration (predictable, describable demo). false = open-ended.
+      FOCUSED_MODE: ${FOCUSED_MODE:-true}
       # Optional: mount a local Superset checkout for real before/after metrics.
       REPO_PATH: ${REPO_PATH:-}
     # Uncomment and set REPO_PATH=/superset to enable real scans:

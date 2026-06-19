@@ -180,7 +180,10 @@ async def _drive_live(run: Run) -> None:
 
     payload = await _poll(client, run.discovery_session_id)
     disc_blob = await _message_blob(client, run.discovery_session_id)
-    findings = _parse_findings(client, payload, disc_blob)[: s.max_sessions_per_run]
+    findings = _parse_findings(client, payload, disc_blob)
+    # Hard-enforce the per-vertical cap (belt-and-suspenders for the prompt).
+    findings = _limit_per_vertical(findings, s.findings_per_vertical)
+    findings = findings[: s.max_sessions_per_run]
     run.findings = findings
     run.phase = "remediating"
     store.save(run)
@@ -280,6 +283,19 @@ def _parse_findings(client: DevinClient, payload: dict, blob: str = "") -> list[
             )
         )
     return findings
+
+
+def _limit_per_vertical(findings: list[Finding], per: int) -> list[Finding]:
+    """Keep at most `per` findings of each vertical (0 = no limit)."""
+    if per <= 0:
+        return findings
+    counts: dict[Vertical, int] = {}
+    kept = []
+    for f in findings:
+        if counts.get(f.vertical, 0) < per:
+            counts[f.vertical] = counts.get(f.vertical, 0) + 1
+            kept.append(f)
+    return kept
 
 
 async def _drive_demo(run: Run) -> None:

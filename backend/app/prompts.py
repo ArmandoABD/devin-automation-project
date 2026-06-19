@@ -45,7 +45,26 @@ def discovery_prompt(vertical: Vertical) -> str:
     s = get_settings()
     repo = s.github_repo
 
-    security_block = f"""
+    if s.focused_mode:
+        # Narrow each vertical to one predictable, well-understood task type.
+        security_block = """
+SECURITY VERTICAL — CVE dependency upgrades ONLY:
+  - Run `pip-audit -r requirements/base.txt` to surface pinned Python packages
+    with published CVEs (exact package / current version / CVE / fixed version).
+  - Each finding = ONE package upgrade. The fix is unambiguous: bump to the
+    fixed version, run the test suite, open a PR. No other change types.
+  - severity = the advisory severity.
+"""
+        backlog_block = """
+CODE-QUALITY VERTICAL — SQLAlchemy 1.x -> 2.0 migration ONLY:
+  - Grep the Python codebase for legacy session-based `.query(` ORM calls
+    (deprecated in SQLAlchemy 2.0).
+  - Each finding = ONE module to migrate from `.query()` to the modern
+    `select()` style. Pure refactor — behavior must stay identical. No other
+    change types.
+"""
+    else:
+        security_block = f"""
 SECURITY VERTICAL (urgent — fix before it bites):
   - In the frontend dir, run `npm audit --json` and collect dependency
     vulnerabilities that HAVE a fix available (skip ones with no fix).
@@ -54,7 +73,7 @@ SECURITY VERTICAL (urgent — fix before it bites):
   - One finding per package. severity = the advisory severity.
 """
 
-    backlog_block = """
+        backlog_block = """
 BACKLOG VERTICAL (toil — trivial but never prioritized):
   - Find directories under superset-frontend/src with `any` TypeScript types
     (`: any`, `as any`, `<any>`). One finding per top-level subdirectory.
@@ -67,6 +86,16 @@ BACKLOG VERTICAL (toil — trivial but never prioritized):
         scope += security_block
     if vertical in (Vertical.BACKLOG, Vertical.BOTH):
         scope += backlog_block
+
+    limit = s.findings_per_vertical
+    if limit > 0:
+        cap = (
+            f"IMPORTANT: report EXACTLY {limit} finding(s) PER VERTICAL — pick "
+            f"the highest-severity / highest-impact one(s) and ignore the rest. "
+            f"This is a focused run; do not exceed the limit."
+        )
+    else:
+        cap = "Cap the total at a reasonable number (max ~6) so we get a clean demo."
 
     return f"""You are an automated remediation scout for the repository {repo}.
 
@@ -83,7 +112,7 @@ For EVERY finding:
      ["devin", the vertical name, severity].
   2. Keep each finding small enough that a single PR can resolve it.
 
-Cap the total at a reasonable number (max ~6) so we get a clean demo.
+{cap}
 
 IMPORTANT: end your final message with a single fenced ```json block containing
 {{"findings": [...]}}, where each finding has: vertical, severity, title, body,

@@ -39,6 +39,19 @@ class Settings:
         self.max_sessions_per_run: int = int(
             os.environ.get("MAX_SESSIONS_PER_RUN", "6")
         )
+        # Demo cap: max findings per vertical (0 = unlimited / ~6 total).
+        # Set to 1 to keep a demo run small: one CVE + one code-quality fix.
+        self.findings_per_vertical: int = int(
+            os.environ.get("FINDINGS_PER_VERTICAL", "0")
+        )
+        # Focused mode: narrow each vertical to one predictable task type —
+        # CVE dependency upgrades (security) and SQLAlchemy .query()->select()
+        # migration (code quality). Off = broader, open-ended discovery.
+        self.focused_mode: bool = os.environ.get("FOCUSED_MODE", "false").lower() in {
+            "1",
+            "true",
+            "yes",
+        }
         # Native Devin schedule: daily cron + timezone for the recurring run.
         self.schedule_cron: str = os.environ.get("SCHEDULE_CRON", "0 9 * * *")
         self.schedule_timezone: str = os.environ.get(
