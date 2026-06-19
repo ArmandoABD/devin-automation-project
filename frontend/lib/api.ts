@@ -18,6 +18,7 @@ export interface RemediationSession {
   status: SessionStatus;
   pr_url?: string | null;
   tests_pass?: boolean | null;
+  is_draft?: boolean | null;
   summary: string;
 }
 

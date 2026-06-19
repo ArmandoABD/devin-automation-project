@@ -219,6 +219,10 @@ async def _remediate(client: DevinClient, run: Run, finding: Finding, idx: int) 
     result = client.extract_structured(payload) or client.extract_json_from_text(blob) or {}
     sess.pr_url = client.extract_pr_url(payload, blob) or result.get("pr_url")
     sess.tests_pass = result.get("tests_pass")
+    # Failing/unrun tests -> draft PR (per the remediation prompt's gate).
+    sess.is_draft = result.get("is_draft")
+    if sess.is_draft is None and sess.tests_pass is False:
+        sess.is_draft = True
     sess.summary = result.get("summary", "")
     # A session that produced a PR is a success even if Devin idles afterward.
     sess.status = "finished" if sess.pr_url else client.session_state(payload)
@@ -328,6 +332,7 @@ async def _remediate_demo(run: Run, idx: int) -> None:
     fails = finding.id == "any-explore"
     sess.status = "finished"
     sess.tests_pass = not fails
+    sess.is_draft = fails  # failing tests -> draft PR
     sess.pr_url = f"https://github.com/{REPO}/pull/{abs(hash(finding.id)) % 900 + 100}"
     sess.summary = (
         "Upgraded dependency and verified test suite"

@@ -46,6 +46,7 @@ class RemediationSession(BaseModel):
     status: SessionStatus = "pending"
     pr_url: Optional[str] = None
     tests_pass: Optional[bool] = None
+    is_draft: Optional[bool] = None  # PR opened as draft (failing/unrun tests)
     summary: str = ""
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None

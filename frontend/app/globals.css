@@ -314,11 +314,32 @@ button.ghost:hover {
   border-color: var(--border-2);
 }
 
+button.ghost.stop {
+  color: var(--red);
+  border-color: #fca5a5;
+}
+button.ghost.stop:hover {
+  background: var(--red-subtle);
+  border-color: var(--red);
+}
+
+.draft-tag {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--amber-subtle);
+  color: var(--amber);
+  border: 1px solid #fcd34d;
+}
+
 /* ── Metrics ────────────────────────────────────────────────────────────── */
 
 .metrics {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 10px;
   margin-bottom: 24px;
 }
@@ -556,16 +577,21 @@ tr:last-child td {
 /* ── Empty state ────────────────────────────────────────────────────────── */
 
 .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  padding: 48px 24px;
+  padding: 56px 24px;
   color: var(--muted);
   font-size: 13.5px;
 }
 
 .empty-state .empty-icon {
+  display: block;
   width: 40px;
   height: 40px;
-  margin: 0 auto 14px;
+  margin-bottom: 14px;
   opacity: 0.25;
 }
 

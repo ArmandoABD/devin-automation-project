@@ -110,10 +110,15 @@ Do the following:
   1. Create a branch and implement the fix.
   2. Make sure the change satisfies the acceptance criteria.
   3. Run the relevant checks (`pre-commit run` for touched files, plus any
-     affected tests) and confirm they pass.
-  4. Open a pull request against {repo} that closes the issue. Reference the
-     issue in the PR body.
+     affected tests).
+  4. Open a pull request against {repo} that closes the issue, referencing the
+     issue in the PR body. Gate the PR state on the checks from step 3:
+       - If ALL checks/tests pass -> open a normal, ready-for-review PR.
+       - If any test FAILS, or you could not run the tests -> open the PR as a
+         DRAFT and add the label `needs-human`, so it cannot be merged until a
+         human reviews it. Never open a non-draft PR with failing tests.
 
 IMPORTANT: end your final message with a single fenced ```json block containing
-{{"pr_url": "...", "tests_pass": true/false, "summary": "one-line description of
-what you changed"}}. This block is parsed programmatically."""
+{{"pr_url": "...", "tests_pass": true/false, "is_draft": true/false, "summary":
+"one-line description of what you changed"}}. This block is parsed
+programmatically."""

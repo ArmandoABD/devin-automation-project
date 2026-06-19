@@ -75,6 +75,11 @@ export default function Dashboard() {
     await refresh();
   };
 
+  const stop = async (id: string) => {
+    await api.stopRun(id);
+    await refresh();
+  };
+
   const activeRuns = runs.filter((r) =>
     ["discovering", "remediating"].includes(r.phase)
   );
@@ -142,9 +147,9 @@ export default function Dashboard() {
                 value={vertical}
                 onChange={(e) => setVertical(e.target.value as Vertical)}
               >
-                <option value="both">Both verticals</option>
-                <option value="security">Security — urgent CVEs</option>
-                <option value="backlog">Backlog — code-quality toil</option>
+                <option value="both">Vulnerabilities and code quality</option>
+                <option value="security">Common Vulnerabilities and Exposures</option>
+                <option value="backlog">Code quality backlog</option>
               </select>
               <button className="primary" onClick={trigger} disabled={triggering}>
                 {triggering ? (
@@ -161,9 +166,6 @@ export default function Dashboard() {
                   </>
                 )}
               </button>
-              <span className="trigger-hint">
-                trigger → discovery → fix sessions → PRs
-              </span>
             </div>
           </div>
 
@@ -178,11 +180,18 @@ export default function Dashboard() {
                 <circle cx="20" cy="20" r="18" />
                 <path d="M13 20l5 5 9-9" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              No runs yet. Click <b>Run remediation</b> to dispatch Devin.
+              <span>
+                No runs yet. Click <b>Run remediation</b> to dispatch Devin.
+              </span>
             </div>
           ) : (
             runs.map((run) => (
-              <RunCard key={run.id} run={run} onVerify={() => verify(run.id)} />
+              <RunCard
+                key={run.id}
+                run={run}
+                onVerify={() => verify(run.id)}
+                onStop={() => stop(run.id)}
+              />
             ))
           )}
         </div>
@@ -194,10 +203,11 @@ export default function Dashboard() {
 function MetricsRow({ m }: { m: Metrics | null }) {
   const cells = [
     { k: "PRs opened", v: m?.prs_opened ?? 0 },
-    { k: "Vulns fixed", v: m?.vulns_remediated ?? 0 },
-    { k: "Code quality fixed", v: m?.backlog_fixed ?? 0 },
+    { k: "Succeeded", v: m?.succeeded ?? 0 },
     { k: "In progress", v: m?.in_progress ?? 0 },
     { k: "Success rate", v: m ? `${Math.round(m.success_rate * 100)}%` : "—" },
+    { k: "Vulnerabilities fixed", v: m?.vulns_remediated ?? 0 },
+    { k: "Code quality fixed", v: m?.backlog_fixed ?? 0 },
   ];
   return (
     <div className="metrics">
@@ -211,10 +221,19 @@ function MetricsRow({ m }: { m: Metrics | null }) {
   );
 }
 
-function RunCard({ run, onVerify }: { run: Run; onVerify: () => void }) {
+function RunCard({
+  run,
+  onVerify,
+  onStop,
+}: {
+  run: Run;
+  onVerify: () => void;
+  onStop: () => void;
+}) {
   const before = (run.before?.py_vulns ?? 0) + (run.before?.npm_vulns ?? 0);
   const after = (run.after?.py_vulns ?? 0) + (run.after?.npm_vulns ?? 0);
   const hasDelta = run.before != null && run.after != null;
+  const active = run.phase === "discovering" || run.phase === "remediating";
 
   return (
     <div className="run">
@@ -223,7 +242,14 @@ function RunCard({ run, onVerify }: { run: Run; onVerify: () => void }) {
           <span className="run-id">{run.id}</span>
           <span className="run-vertical">{run.vertical}</span>
         </div>
-        <span className={`phase ${run.phase}`}>{run.phase}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {active && (
+            <button className="ghost stop" onClick={onStop}>
+              ■ Stop
+            </button>
+          )}
+          <span className={`phase ${run.phase}`}>{run.phase}</span>
+        </div>
       </div>
 
       {run.discovery_session_url && (
@@ -327,9 +353,12 @@ function SessionRow({ s }: { s: RemediationSession }) {
       </td>
       <td>
         {s.pr_url ? (
-          <a href={s.pr_url} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
-            View PR ↗
-          </a>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <a href={s.pr_url} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+              View PR ↗
+            </a>
+            {s.is_draft && <span className="draft-tag">draft</span>}
+          </span>
         ) : (
           <span className="muted">—</span>
         )}
