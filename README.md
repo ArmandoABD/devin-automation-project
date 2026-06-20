@@ -51,7 +51,7 @@ repeatable, and it shows Devin handling **real code refactoring**.
 
 The Remediation Engineer can be **scheduled** or **run on demand**:
 
-- **Scheduled** — a recurring daily run at **9 AM** (America/Los_Angeles),
+- **Scheduled** — a recurring daily run at **9 AM** (UTC),
   created through **Devin's native v3 Schedules API**. The schedule fires a Devin
   session that runs the full remediation loop end to end. Managed via the
   `/api/schedule` endpoints (create / list / delete).
